@@ -91,7 +91,7 @@
     <div id="title">PARKOUR MEET</div>
     <div id="speech"></div>
     <div id="dialog">
-      <div style="font-weight:600; margin-bottom:6px;">Congractulations!</div>
+      <div style="font-weight:600; margin-bottom:6px;>Congratulations</div>
       <div style="font-size:13px; opacity:0.95;">What do you do?</div>
       <div style="margin-top:10px;">
         <button id="talkBtn" class="choice">Talk</button>
@@ -107,7 +107,8 @@
 
     <div id="joystick"><div id="stick"></div></div>
     <div id="jumpBtn">JUMP</div>
-    </div>
+    
+  </div>
 
   <!-- Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -158,98 +159,157 @@
   grid.material.opacity = 0.1; grid.material.transparent = true;
   scene.add(grid);
 
-  // === Player (male) - improved character model ===
+  // === Player (male) - improved character model with perfect positioning ===
   const player = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2b3a45 });
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xe6cfb3 });
   const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a2430 });
+  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x3a5675 });
 
-  // Torso
-  const playerTorso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), bodyMat);
+  // Torso - slim human-like shape
+  const torsoGeom = new THREE.CylinderGeometry(0.3, 0.35, 1.2, 8);
+  const playerTorso = new THREE.Mesh(torsoGeom, shirtMat);
   playerTorso.position.y = 0.7;
   playerTorso.castShadow = true;
   player.add(playerTorso);
 
-  // Head
-  const playerHead = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), skinMat);
-  playerHead.position.set(0, 1.6, 0);
+  // Head - more detailed
+  const headGeom = new THREE.SphereGeometry(0.25, 16, 16);
+  const playerHead = new THREE.Mesh(headGeom, skinMat);
+  playerHead.position.set(0, 1.55, 0);
   playerHead.castShadow = true;
   player.add(playerHead);
 
-  // Arms
-  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8), skinMat);
-  leftArm.position.set(-0.5, 0.8, 0);
-  leftArm.rotation.z = Math.PI / 6;
+  // Arms - sticking out from shoulders properly
+  const armGeom = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8);
+  
+  // Left arm - properly positioned to stick out from shoulder
+  const leftArm = new THREE.Mesh(armGeom, skinMat);
+  leftArm.position.set(-0.4, 0.85, 0); // Further from body
+  leftArm.rotation.z = 0; // Straight down
   leftArm.castShadow = true;
   player.add(leftArm);
 
-  const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8), skinMat);
-  rightArm.position.set(0.5, 0.8, 0);
-  rightArm.rotation.z = -Math.PI / 6;
+  // Right arm - properly positioned to stick out from shoulder
+  const rightArm = new THREE.Mesh(armGeom, skinMat);
+  rightArm.position.set(0.4, 0.85, 0); // Further from body
+  rightArm.rotation.z = 0; // Straight down
   rightArm.castShadow = true;
   player.add(rightArm);
 
-  // Legs
-  const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.9, 8), pantsMat);
-  leftLeg.position.set(-0.2, 0.1, 0);
+  // Legs - perfectly positioned with no floating
+  const legGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.9, 8);
+  
+  // Left leg - perfectly positioned with no floating
+  const leftLeg = new THREE.Mesh(legGeom, pantsMat);
+  leftLeg.position.set(-0.12, -0.15, 0); // Lowered to prevent floating
   leftLeg.castShadow = true;
   player.add(leftLeg);
 
-  const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.9, 8), pantsMat);
-  rightLeg.position.set(0.2, 0.1, 0);
+  // Right leg - perfectly positioned with no floating
+  const rightLeg = new THREE.Mesh(legGeom, pantsMat);
+  rightLeg.position.set(0.12, -0.15, 0); // Lowered to prevent floating
   rightLeg.castShadow = true;
   player.add(rightLeg);
 
+  // Store limb references for animation
+  const playerLimbs = {
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg
+  };
+
+  // Player physics constants
+  const playerHeight = 1.7; // Adjusted for perfect positioning
+  const playerRadius = 0.2;
+
   // player physics
   let velY = 0;
-  const gravity = -28;     // stronger gravity for snappier jumps
-  const jumpImpulse = 9.2; // tuned for reachable platforms
+  const gravity = -28;
+  const jumpImpulse = 9.2;
   let grounded = false;
   let playerDirection = new THREE.Vector3();
   let gameActive = true;
+  let isMoving = false;
 
-  // === NPC (female) - improved character model ===
+  // === NPC (female) - improved character model with perfect positioning ===
   const npc = new THREE.Group();
   const npcBodyMat = new THREE.MeshStandardMaterial({ color: 0x6a3b5f });
   const npcSkin = new THREE.MeshStandardMaterial({ color: 0xf0d6c0 });
   const npcDressMat = new THREE.MeshStandardMaterial({ color: 0x8a4c7a });
+  const npcHairMat = new THREE.MeshStandardMaterial({ color: 0x1b0f18 });
 
-  // Torso
-  const npcTorso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), npcBodyMat);
-  npcTorso.position.y = 0.7;
+  // Torso - slim human-like shape
+  const npcTorsoGeom = new THREE.CylinderGeometry(0.25, 0.3, 1.1, 8);
+  const npcTorso = new THREE.Mesh(npcTorsoGeom, npcBodyMat);
+  npcTorso.position.y = 0.65;
   npcTorso.castShadow = true;
   npc.add(npcTorso);
 
-  // Head
-  const npcHead = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 10), npcSkin);
-  npcHead.position.y = 1.55;
+  // Head - more detailed
+  const npcHeadGeom = new THREE.SphereGeometry(0.22, 16, 16);
+  const npcHead = new THREE.Mesh(npcHeadGeom, npcSkin);
+  npcHead.position.y = 1.5;
   npcHead.castShadow = true;
   npc.add(npcHead);
 
-  // Hair
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), new THREE.MeshStandardMaterial({ color: 0x1b0f18 }));
-  hair.position.set(0, 1.7, -0.1);
+  // Hair - more detailed
+  const hairGeom = new THREE.SphereGeometry(0.26, 16, 16);
+  const hair = new THREE.Mesh(hairGeom, npcHairMat);
+  hair.position.set(0, 1.65, -0.1);
+  hair.scale.set(1, 0.7, 1.2);
   hair.castShadow = true;
   npc.add(hair);
 
-  // Arms
-  const npcLeftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), npcSkin);
-  npcLeftArm.position.set(-0.45, 0.8, 0);
-  npcLeftArm.rotation.z = Math.PI / 6;
+  // Arms - sticking out from shoulders properly
+  const npcArmGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.7, 8);
+  
+  // Left arm - properly positioned to stick out from shoulder
+  const npcLeftArm = new THREE.Mesh(npcArmGeom, npcSkin);
+  npcLeftArm.position.set(-0.3, 0.8, 0);
+  npcLeftArm.rotation.z = 0; // Straight down
   npcLeftArm.castShadow = true;
   npc.add(npcLeftArm);
 
-  const npcRightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 8), npcSkin);
-  npcRightArm.position.set(0.45, 0.8, 0);
-  npcRightArm.rotation.z = -Math.PI / 6;
+  // Right arm - properly positioned to stick out from shoulder
+  const npcRightArm = new THREE.Mesh(npcArmGeom, npcSkin);
+  npcRightArm.position.set(0.3, 0.8, 0);
+  npcRightArm.rotation.z = 0; // Straight down
   npcRightArm.castShadow = true;
   npc.add(npcRightArm);
 
-  // Dress/Legs
-  const npcDress = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.9, 8), npcDressMat);
-  npcDress.position.y = 0.1;
+  // Dress - perfectly positioned
+  const npcDressGeom = new THREE.CylinderGeometry(0.25, 0.35, 0.8, 8);
+  const npcDress = new THREE.Mesh(npcDressGeom, npcDressMat);
+  npcDress.position.y = 0.2; // Perfectly positioned
   npcDress.castShadow = true;
   npc.add(npcDress);
+
+  // Legs for NPC (visible under dress) - no floating
+  const npcLegGeom = new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8);
+  const npcLeftLeg = new THREE.Mesh(npcLegGeom, npcSkin);
+  npcLeftLeg.position.set(-0.08, -0.1, 0); // Lowered to prevent floating
+  npcLeftLeg.castShadow = true;
+  npc.add(npcLeftLeg);
+
+  const npcRightLeg = new THREE.Mesh(npcLegGeom, npcSkin);
+  npcRightLeg.position.set(0.08, -0.1, 0); // Lowered to prevent floating
+  npcRightLeg.castShadow = true;
+  npc.add(npcRightLeg);
+
+  // Function to create a smile
+  function createSmile(parent, size, yOffset) {
+    const smileGeom = new THREE.TorusGeometry(size * 0.6, size * 0.1, 8, 16, Math.PI);
+    const smileMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const smile = new THREE.Mesh(smileGeom, smileMat);
+    smile.rotation.x = Math.PI / 2;
+    smile.position.set(0, yOffset, size * 1.1);
+    parent.add(smile);
+    return smile;
+  }
+
+
 
   // place NPC further away
   npc.position.set(0, 0, -16);
@@ -258,12 +318,11 @@
   // marker above NPC
   const markGeom = new THREE.ConeGeometry(0.13, 0.28, 6);
   const mark = new THREE.Mesh(markGeom, new THREE.MeshBasicMaterial({ color: 0xffcc66 }));
-  mark.position.set(0, 2.15, -16);
+  mark.position.set(0, 2.0, -16);
   mark.rotation.x = Math.PI;
   scene.add(mark);
 
   // ===== Parkour platforms =====
-  // array of platform objects {mesh, minX, maxX, minZ, maxZ, topY}
   const platforms = [];
 
   function addPlatform(x,z,w=2.2,d=1.6,h=0.3,y=0.18, color=0x4db6ac) {
@@ -285,7 +344,7 @@
   }
 
   // Create a sequence of platforms from player to npc
-  addPlatform(0, 0.5, 3.5, 2.0, 0.3, 0.18, 0x4db6ac);   // starting safe platform
+  addPlatform(0, 0.5, 3.5, 2.0, 0.3, 0.18, 0x4db6ac);
   addPlatform(0.6, -1.5, 2.2, 1.6, 0.3, 0.18, 0x26a69a);
   addPlatform(-1.1, -4.2, 2.2, 1.6, 0.3, 0.18, 0x009688);
   addPlatform(1.5, -6.9, 2.4, 1.6, 0.3, 0.18, 0x00897b);
@@ -296,8 +355,8 @@
   // small pillar near NPC
   addPlatform(0, -15.6, 1.2, 1.2, 0.3, 0.18, 0x004d40);
 
-  // Start position - now on the first platform
-  const startPos = new THREE.Vector3(0, 0.33, 0.5); // Positioned on the first platform
+  // Start position - perfectly positioned on first platform
+  const startPos = new THREE.Vector3(0, 0.4, 0.5);
   const interactionRadius = 1.5;
 
   // UI elements
@@ -325,11 +384,9 @@
     const y = touch.clientY - rect.top - rect.height/2;
     const max = rect.width/2 - 22;
     
-    // Calculate distance from center
     const distance = Math.sqrt(x*x + y*y);
     
     if (distance > max) {
-      // Normalize to max distance
       joystickX = (x / distance) * max;
       joystickY = (y / distance) * max;
     } else {
@@ -394,13 +451,12 @@
   });
 
   leaveBtn.addEventListener('click', () => {
-    // teleport back to start
     resetGame();
     dialog.style.display = 'none';
     inRange = false;
   });
 
-  // Restart button - FIXED: now properly restarts the game
+  // Restart button
   restartBtn.addEventListener('click', resetGame);
 
   // Game reset function
@@ -412,15 +468,62 @@
     gameOverScreen.style.display = 'none';
     dialog.style.display = 'none';
     inRange = false;
-    
-    // Reset camera position to behind the player
     camera.position.set(0, 4, 8);
-    console.log("Game reset successfully");
   }
 
-  // helper: AABB intersection simple
-  function pointInPlatformFeet(px, pz, platform) {
-    return (px >= platform.minX - 0.001 && px <= platform.maxX + 0.001 && pz >= platform.minZ - 0.001 && pz <= platform.maxZ + 0.001);
+  // IMPROVED: Better collision detection system
+  function checkPlatformCollision() {
+    const playerFeetY = player.position.y - (playerHeight / 2);
+    let highestSurface = -Infinity;
+    let onPlatform = false;
+    
+    for (const platform of platforms) {
+      if (player.position.x >= platform.minX && player.position.x <= platform.maxX &&
+          player.position.z >= platform.minZ && player.position.z <= platform.maxZ) {
+        
+        if (playerFeetY <= platform.topY + 0.1) {
+          if (platform.topY > highestSurface) {
+            highestSurface = platform.topY;
+            onPlatform = true;
+          }
+        }
+      }
+    }
+    
+    if (playerFeetY <= 0.1 && !onPlatform) {
+      highestSurface = 0;
+      onPlatform = true;
+    }
+    
+    return {
+      onPlatform,
+      surfaceY: highestSurface
+    };
+  }
+
+  // IMPROVED: Better animations with Roblox-style arm movement
+  function updatePlayerAnimation(time, isMoving) {
+    if (!isMoving) {
+      // Reset to idle position - arms parallel to body
+      playerLimbs.leftArm.rotation.x = 0;
+      playerLimbs.rightArm.rotation.x = 0;
+      playerLimbs.leftLeg.rotation.x = 0;
+      playerLimbs.rightLeg.rotation.x = 0;
+      return;
+    }
+    
+    // Walking animation - Roblox style
+    const walkSpeed = 12;
+    const armSwing = Math.sin(time * walkSpeed) * 0.3;
+    const legSwing = Math.sin(time * walkSpeed) * 0.4;
+    
+    // Arm animation - swing forward/backward like Roblox
+    playerLimbs.leftArm.rotation.x = -armSwing;
+    playerLimbs.rightArm.rotation.x = armSwing;
+    
+    // Leg animation - natural walking motion
+    playerLimbs.leftLeg.rotation.x = legSwing;
+    playerLimbs.rightLeg.rotation.x = -legSwing;
   }
 
   // Third-person camera variables
@@ -439,22 +542,23 @@
       return;
     }
 
-    // movement input - FIXED: non-inverted controls
+    // movement input
     let mvx = 0, mvz = 0;
     
-    // Joystick input (normalized) - FIXED: proper direction
     if (Math.abs(joystickX) > 2 || Math.abs(joystickY) > 2) {
-      mvx += joystickX / 80;  // Left/right
-      mvz += joystickY / 80;  // Forward/backward (NOT inverted)
+      mvx += joystickX / 80;
+      mvz += joystickY / 80;
     }
     
-    // Keyboard input
     if (keys['w'] || keys['arrowup']) mvz -= 0.15;
     if (keys['s'] || keys['arrowdown']) mvz += 0.15;
     if (keys['a'] || keys['arrowleft']) mvx -= 0.15;
     if (keys['d'] || keys['arrowright']) mvx += 0.15;
 
-    // Apply movement directly (world space) - SIMPLIFIED
+    // Check if player is moving
+    isMoving = Math.abs(mvx) > 0.01 || Math.abs(mvz) > 0.01;
+
+    // Apply movement
     player.position.x += mvx * dt * 10;
     player.position.z += mvz * dt * 10;
 
@@ -463,108 +567,23 @@
       player.rotation.y = Math.atan2(mvx, mvz);
     }
 
-    // ----- Vertical physics -----
-    // ground/platform collision detection:
-    const footX = player.position.x;
-    const footZ = player.position.z;
-    let surfaceY = -Infinity; // highest surface under the player
-    
-    // check platforms
-    for (const p of platforms) {
-      if (pointInPlatformFeet(footX, footZ, p)) {
-        if (p.topY > surfaceY) surfaceY = p.topY;
-      }
-    }
-    
-    // ground plane at y = 0
-    if (0 > surfaceY) surfaceY = 0;
-
-    // apply gravity
+    // ----- IMPROVED Vertical physics -----
+    // Apply gravity
     velY += gravity * dt;
     player.position.y += velY * dt;
 
-    // simple collision response: if player is below surface (a little threshold), snap up
-    if (player.position.y <= surfaceY + 0.001) {
-      player.position.y = surfaceY;
+    // Check platform collision with improved system
+    const collision = checkPlatformCollision();
+    
+    if (collision.onPlatform && player.position.y - (playerHeight / 2) <= collision.surfaceY + 0.1) {
+      // Player is on a platform or ground - PERFECTLY POSITIONED
+      player.position.y = collision.surfaceY + (playerHeight / 2);
       velY = 0;
       grounded = true;
       
       // Check if player touched the ground (not a platform)
-      if (surfaceY === 0) {
-        // Game over - player touched the ground
+      if (collision.surfaceY === 0) {
         gameActive = false;
         gameOverScreen.style.display = 'block';
       }
-    } else {
-      grounded = false;
-    }
-
-    // jump action (space or jump button)
-    const wantJump = jumpPressed || keys[' '];
-    if (wantJump && grounded) {
-      velY = jumpImpulse;
-      grounded = false;
-    }
-
-    // npc bob & slight animation
-    npc.rotation.y = Math.sin(now * 0.0008) * 0.02;
-    npc.position.x = 0; // keep npc x stable
-    npc.position.z = -16; // ensure stays at spot
-
-    // mark rotation
-    mark.rotation.y += 0.02;
-
-    // Third-person camera - FIXED: always stays behind the player
-    const targetCameraPosition = new THREE.Vector3();
-    targetCameraPosition.copy(player.position);
     
-    // Calculate camera offset based on player's rotation - FIXED: negative values for behind
-    const cameraOffset = new THREE.Vector3(
-      -Math.sin(player.rotation.y) * cameraDistance,
-      cameraHeight,
-      -Math.cos(player.rotation.y) * cameraDistance
-    );
-    
-    targetCameraPosition.add(cameraOffset);
-    
-    // Smooth camera movement
-    camera.position.lerp(targetCameraPosition, 0.1);
-    camera.lookAt(player.position.x, player.position.y + 1.5, player.position.z);
-
-    // check distance for interaction with npc
-    const dx = player.position.x - npc.position.x;
-    const dz = player.position.z - npc.position.z;
-    const dist = Math.sqrt(dx*dx + dz*dz);
-    if (dist <= interactionRadius && !inRange) {
-      inRange = true;
-      dialog.style.display = 'block';
-    } else if (dist > interactionRadius && inRange) {
-      inRange = false;
-      dialog.style.display = 'none';
-      speech.style.display = 'none';
-    }
-
-    // Render
-    renderer.render(scene, camera);
-  }
-  
-  // Enable shadows
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  
-  // Set player position on the first platform
-  player.position.copy(startPos);
-  scene.add(player);
-  
-  animate(0);
-
-  // Resize handling
-  window.addEventListener('resize', () => {
-    renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-  });
-
-  </script>
-</body>
-  </html>
