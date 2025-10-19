@@ -298,31 +298,7 @@
   npcRightLeg.castShadow = true;
   npc.add(npcRightLeg);
 
-  // Function to create a smile
-  function createSmile(parent, size, yOffset) {
-    const smileGeom = new THREE.TorusGeometry(size * 0.6, size * 0.1, 8, 16, Math.PI);
-    const smileMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const smile = new THREE.Mesh(smileGeom, smileMat);
-    smile.rotation.x = Math.PI / 2;
-    smile.position.set(0, yOffset, size * 1.1);
-    parent.add(smile);
-    return smile;
-  }
-
-  // Add smiles to both characters
-  const playerSmile = createSmile(playerHead, 0.25, -0.05);
-  const npcSmile = createSmile(npcHead, 0.22, -0.05);
-
-  // place NPC further away
-  npc.position.set(0, 0, -16);
-  scene.add(npc);
-
-  // marker above NPC
-  const markGeom = new THREE.ConeGeometry(0.13, 0.28, 6);
-  const mark = new THREE.Mesh(markGeom, new THREE.MeshBasicMaterial({ color: 0xffcc66 }));
-  mark.position.set(0, 2.0, -16);
-  mark.rotation.x = Math.PI;
-  scene.add(mark);
+  
 
   // ===== Parkour platforms =====
   const platforms = [];
