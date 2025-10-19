@@ -298,6 +298,16 @@
   npcRightLeg.castShadow = true;
   npc.add(npcRightLeg);
 
+  // place NPC further away
+  npc.position.set(0, 0, -16);
+  scene.add(npc);
+
+  // marker above NPC
+  const markGeom = new THREE.ConeGeometry(0.13, 0.28, 6);
+  const mark = new THREE.Mesh(markGeom, new THREE.MeshBasicMaterial({ color: 0xffcc66 }));
+  mark.position.set(0, 2.0, -16);
+  mark.rotation.x = Math.PI;
+  scene.add(mark);
   
 
   // ===== Parkour platforms =====
