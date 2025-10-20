@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<title>Reality Parkour</title>
+<style>
+  html,body { 
+    height:100%; 
+    margin:0; 
+    background:#87CEEB; 
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+  }
+  canvas { display:block; width:100%; height:100%; }
+  
+  /* UI overlay */
+  #ui { position: absolute; inset:0; pointer-events:none; }
+  
+  /* Start Screen */
+  #startScreen {
+    position: absolute; inset:0; background: rgba(135, 206, 235, 0.95);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    z-index: 100; color: #333; text-align: center; padding: 20px;
+    pointer-events: auto;
+  }
+  #characterContainer {
+    display: flex; align-items: flex-end; justify-content: center;
+    width: 100%; max-width: 500px; margin-bottom: 30px;
+  }
+  #characterModel {
+    width: 120px; height: 200px; position: relative;
+  }
+  #chatBubble {
+    background: rgba(255,255,255,0.95); color: #333; 
+    padding: 15px 20px; border-radius: 20px; max-width: 300px;
+    margin-left: 20px; position: relative; text-align: left;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  #chatBubble:after {
+    content: ''; position: absolute; left: -10px; bottom: 20px;
+    width: 0; height: 0; border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent; border-right: 10px solid rgba(255,255,255,0.95);
+  }
+  #question {
+    font-size: 20px; margin: 0; line-height: 1.4;
+  }
+  .option {
+    background: #4a90e2; color: white; border: none; 
+    padding: 14px 28px; border-radius: 8px; margin: 10px;
+    font-size: 18px; cursor: pointer; transition: all 0.2s;
+    pointer-events: auto;
+  }
+  .option:hover { background: #3a7bc8; transform: translateY(-2px); }
+  
+  /* Game UI */
+  #title {
+    position: absolute; top: 12px; left: 12px;
+    color: rgba(255,255,255,0.95); font-weight:700; font-size:16px;
+    z-index: 40; pointer-events:none; letter-spacing:1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  #hint {
+    pointer-events: none;
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: 18px; color: rgba(255,255,255,0.86); font-size:13px; z-index: 10;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  
+  /* Joystick left */
+  #joystick {
+    pointer-events: auto;
+    position: absolute;
+    left: 18px; bottom: 28px;
+    width: 110px; height: 110px;
+    border-radius: 999px; border: 2px solid rgba(0,100,200,0.9);
+    z-index: 40; touch-action: none; background: rgba(255,255,255,0.15);
+  }
+  #stick {
+    position: absolute; width: 44px; height: 44px; border-radius: 999px;
+    background: rgba(0,100,200,0.95); left: 33px; top: 33px; transition: 0.05s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  /* Jump button right */
+  #jumpBtn {
+    pointer-events: auto;
+    position: absolute;
+    right: 18px; bottom: 28px;
+    width: 100px; height: 60px;
+    border-radius: 12px;
+    background: rgba(30, 150, 50, 0.7);
+    border: 2px solid rgba(30, 150, 50, 0.9);
+    color: white; font-size: 16px; font-weight:700;
+    z-index: 40; display:flex; align-items:center; justify-content:center;
+    touch-action: none; cursor: pointer;
+  }
+  #jumpBtn:active { transform: translateY(2px); }
+
+  /* Interaction dialog (center) */
+  #dialog {
+    pointer-events: auto; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%,-20%); background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(0,0,0,0.1); padding: 20px; border-radius: 10px;
+    display: none; z-index: 50; width: min(340px,86%); text-align:center; color:#333;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  }
+  #dialogText {
+    font-weight:600; margin-bottom:10px; line-height: 1.4;
+  }
+  #continueBtn {
+    background: #4a90e2; color: white; border: none; padding: 10px 20px;
+    border-radius: 5px; margin-top: 15px; cursor: pointer; font-size: 16px;
+    pointer-events: auto;
+  }
+  
+  /* Game over message */
+  #gameOver {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85); color: white; padding: 20px; border-radius: 10px;
+    display: none; z-index: 60; text-align: center; width: min(300px, 80%);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+    pointer-events: auto;
+  }
+  #restartBtn {
+    background: #e74c3c; color: white; border: none; padding: 10px 20px;
+    border-radius: 5px; margin-top: 15px; cursor: pointer; font-size: 16px;
+  }
+  
+  /* Level indicator */
+  #levelIndicator {
+    position: absolute; top: 12px; right: 12px;
+    color: rgba(255,255,255,0.8); font-size: 14px;
+    z-index: 40; pointer-events: none;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  
+  /* End screen */
+  #endScreen {
+    position: absolute; inset:0; background: rgba(135, 206, 235, 0.95);
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+    z-index: 100; color: #333; text-align: center; padding: 20px;
+    pointer-events: auto;
+  }
+  #endMessage {
+    font-size: 24px; margin-bottom: 30px; max-width: 80%;
+    line-height: 1.4; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <div id="characterContainer">
+      <div id="characterModel">
+        <!-- Simple character representation -->
+        <div style="position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:40px; height:60px; background:#3a5675; border-radius:20px 20px 0 0;"></div>
+        <div style="position:absolute; bottom:60px; left:50%; transform:translateX(-50%); width:50px; height:50px; background:#e6cfb3; border-radius:50%;"></div>
+        <div style="position:absolute; bottom:110px; left:50%; transform:translateX(-50%); width:40px; height:30px; background:#3a5675; border-radius:20px 20px 0 0;"></div>
+      </div>
+      <div id="chatBubble">
+        <p id="question">Do you think this is real?</p>
+      </div>
+    </div>
+    <div>
+      <button id="yesBtn" class="option">Yes</button>
+      <button id="noBtn" class="option">No</button>
+    </div>
+  </div>
+
+  <!-- Game UI -->
+  <div id="ui">
+    <div id="title">REALITY PARKOUR</div>
+    <div id="levelIndicator">Level: 1</div>
+    
+    <div id="dialog">
+      <div id="dialogText">What a good boy are you, nobody said you to do that Parkour but you still did it. Do you really think you have options in life?</div>
+      <button id="continueBtn">Continue</button>
+    </div>
+    
+    <div id="gameOver">
+      <h2>Game Over</h2>
+      <p>You fell to the ground!</p>
+      <button id="restartBtn">Restart Level</button>
+    </div>
+
+    <div id="joystick"><div id="stick"></div></div>
+    <div id="jumpBtn">JUMP</div>
+    <div id="hint">Use joystick to move • Jump to cross platforms</div>
+  </div>
+
+  <!-- End Screen -->
+  <div id="endScreen">
+    <div id="endMessage">AMIGO! You did it! Or did you?</div>
+    <button id="playAgainBtn" class="option">Play Again</button>
+  </div>
+
+  <!-- Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+  // === Game State ===
+  let gameStarted = false;
+  let currentLevel = 1;
+  let platforms = [];
+  
+  // Dialogues for each level
+  const levelDialogues = [
+    "What a good boy are you, nobody said you to do that Parkour but you still did it. Do you really think you have options in life?",
+    "You're still here? Maybe you do have a choice. Or are you just following the path set for you?",
+    "Every step you take is a decision. But are they your decisions, or just the ones you were programmed to make?",
+    "You've come so far. Do you feel free, or are you just playing out a role in a game you didn't choose?",
+    "This is the final challenge. If you complete it, what then? Will you have proven your freedom, or just followed the rules of another system?"
+  ];
+  
+  // === Renderer & Scene ===
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  // Daytime fog - light blue
+  scene.fog = new THREE.Fog(0x87CEEB, 30, 150);
+
+  // Camera
+  const camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 300);
+  camera.position.set(0, 4, 8);
+
+  // Lights - Daytime setup
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+  sunLight.position.set(10, 20, 5);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.camera.near = 0.5;
+  sunLight.shadow.camera.far = 100;
+  sunLight.shadow.camera.left = -30;
+  sunLight.shadow.camera.right = 30;
+  sunLight.shadow.camera.top = 30;
+  sunLight.shadow.camera.bottom = -30;
+  scene.add(sunLight);
+
+  // Sky background - daytime
+  scene.background = new THREE.Color(0x87CEEB);
+
+  // Ground - green for daytime
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x7cb342, metalness:0.0, roughness:0.9 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = -0.02;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // subtle grid for depth
+  const grid = new THREE.GridHelper(60, 60, 0x90a4ae, 0x78909c);
+  grid.material.opacity = 0.1; grid.material.transparent = true;
+  scene.add(grid);
+
+  // === Player (character) ===
+  const player = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2b3a45 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xe6cfb3 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a2430 });
+  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x3a5675 });
+
+  // Torso
+  const torsoGeom = new THREE.CylinderGeometry(0.3, 0.35, 1.2, 8);
+  const playerTorso = new THREE.Mesh(torsoGeom, shirtMat);
+  playerTorso.position.y = 0.7;
+  playerTorso.castShadow = true;
+  player.add(playerTorso);
+
+  // Head
+  const headGeom = new THREE.SphereGeometry(0.25, 16, 16);
+  const playerHead = new THREE.Mesh(headGeom, skinMat);
+  playerHead.position.set(0, 1.55, 0);
+  playerHead.castShadow = true;
+  player.add(playerHead);
+
+  // Arms
+  const armGeom = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8);
+  
+  const leftArm = new THREE.Mesh(armGeom, skinMat);
+  leftArm.position.set(-0.4, 0.85, 0);
+  leftArm.rotation.z = 0;
+  leftArm.castShadow = true;
+  player.add(leftArm);
+
+  const rightArm = new THREE.Mesh(armGeom, skinMat);
+  rightArm.position.set(0.4, 0.85, 0);
+  rightArm.rotation.z = 0;
+  rightArm.castShadow = true;
+  player.add(rightArm);
+
+  // Legs
+  const legGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.9, 8);
+  
+  const leftLeg = new THREE.Mesh(legGeom, pantsMat);
+  leftLeg.position.set(-0.12, -0.15, 0);
+  leftLeg.castShadow = true;
+  player.add(leftLeg);
+
+  const rightLeg = new THREE.Mesh(legGeom, pantsMat);
+  rightLeg.position.set(0.12, -0.15, 0);
+  rightLeg.castShadow = true;
+  player.add(rightLeg);
+
+  // Store limb references for animation
+  const playerLimbs = {
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg
+  };
+
+  // Player physics constants
+  const playerHeight = 1.7;
+  const playerRadius = 0.2;
+
+  // player physics
+  let velY = 0;
+  const gravity = -28;
+  const jumpImpulse = 9.2;
+  let grounded = false;
+  let playerDirection = new THREE.Vector3();
+  let gameActive = false;
+  let isMoving = false;
+
+  // === NPC (same character at the end) ===
+  const npc = new THREE.Group();
+  const npcBodyMat = new THREE.MeshStandardMaterial({ color: 0x3a5675 });
+  const npcSkin = new THREE.MeshStandardMaterial({ color: 0xe6cfb3 });
+  const npcPantsMat = new THREE.MeshStandardMaterial({ color: 0x1a2430 });
+
+  // Torso
+  const npcTorsoGeom = new THREE.CylinderGeometry(0.3, 0.35, 1.2, 8);
+  const npcTorso = new THREE.Mesh(npcTorsoGeom, npcBodyMat);
+  npcTorso.position.y = 0.7;
+  npcTorso.castShadow = true;
+  npc.add(npcTorso);
+
+  // Head
+  const npcHeadGeom = new THREE.SphereGeometry(0.25, 16, 16);
+  const npcHead = new THREE.Mesh(npcHeadGeom, npcSkin);
+  npcHead.position.y = 1.55;
+  npcHead.castShadow = true;
+  npc.add(npcHead);
+
+  // Arms
+  const npcArmGeom = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8);
+  
+  const npcLeftArm = new THREE.Mesh(npcArmGeom, npcSkin);
+  npcLeftArm.position.set(-0.4, 0.85, 0);
+  npcLeftArm.rotation.z = 0;
+  npcLeftArm.castShadow = true;
+  npc.add(npcLeftArm);
+
+  const npcRightArm = new THREE.Mesh(npcArmGeom, npcSkin);
+  npcRightArm.position.set(0.4, 0.85, 0);
+  npcRightArm.rotation.z = 0;
+  npcRightArm.castShadow = true;
+  npc.add(npcRightArm);
+
+  // Legs
+  const npcLegGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.9, 8);
+  
+  const npcLeftLeg = new THREE.Mesh(npcLegGeom, npcPantsMat);
+  npcLeftLeg.position.set(-0.12, -0.15, 0);
+  npcLeftLeg.castShadow = true;
+  npc.add(npcLeftLeg);
+
+  const npcRightLeg = new THREE.Mesh(npcLegGeom, npcPantsMat);
+  npcRightLeg.position.set(0.12, -0.15, 0);
+  npcRightLeg.castShadow = true;
+  npc.add(npcRightLeg);
+
+  scene.add(npc);
+
+  // marker above NPC
+  const markGeom = new THREE.ConeGeometry(0.13, 0.28, 6);
+  const mark = new THREE.Mesh(markGeom, new THREE.MeshBasicMaterial({ color: 0xffcc66 }));
+  mark.rotation.x = Math.PI;
+  scene.add(mark);
+  
+  // Start position
+  const startPos = new THREE.Vector3(0, 0.4, 0.5);
+  const interactionRadius = 1.5;
+
+  // UI elements
+  const startScreen = document.getElementById('startScreen');
+  const yesBtn = document.getElementById('yesBtn');
+  const noBtn = document.getElementById('noBtn');
+  const joystick = document.getElementById('joystick');
+  const stick = document.getElementById('stick');
+  const jumpBtn = document.getElementById('jumpBtn');
+  const gameOverScreen = document.getElementById('gameOver');
+  const restartBtn = document.getElementById('restartBtn');
+  const dialog = document.getElementById('dialog');
+  const dialogText = document.getElementById('dialogText');
+  const continueBtn = document.getElementById('continueBtn');
+  const levelIndicator = document.getElementById('levelIndicator');
+  const endScreen = document.getElementById('endScreen');
+  const endMessage = document.getElementById('endMessage');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+
+  // Start game function
+  function startGame() {
+    gameStarted = true;
+    gameActive = true;
+    startScreen.style.display = 'none';
+    generateLevel(currentLevel);
+    resetGame();
+  }
+
+  // Start button events
+  yesBtn.addEventListener('click', startGame);
+  noBtn.addEventListener('click', startGame);
+
+  // Play again button
+  playAgainBtn.addEventListener('click', () => {
+    currentLevel = 1;
+    startGame();
+    endScreen.style.display = 'none';
+  });
+
+  // Level generation function with balanced difficulty
+  function generateLevel(level) {
+    // Clear existing platforms
+    platforms.forEach(platform => {
+      scene.remove(platform.mesh);
+    });
+    platforms = [];
+    
+    // Update level indicator - show "Final Level" for level 5
+    if (level === 5) {
+      levelIndicator.textContent = "Final Level";
+    } else {
+      levelIndicator.textContent = `Level: ${level}`;
+    }
+    
+    // Base parameters for level 1
+    let platformCount = 7;
+    let maxOffset = 1.8;
+    let minGap = 1.4;
+    let maxGap = 2.2;
+    let width = 2.2;
+    let depth = 1.6;
+    
+    // Apply moderate difficulty increase (6% per level)
+    if (level >= 2) {
+      const difficultyFactor = 1 + ((level - 1) * 0.06);
+      platformCount = Math.floor(7 * difficultyFactor);
+      maxOffset = 1.8 * difficultyFactor;
+      minGap = 1.4 * difficultyFactor;
+      maxGap = 2.2 * difficultyFactor;
+      width = Math.max(1.7, 2.2 / difficultyFactor);
+      depth = Math.max(1.3, 1.6 / difficultyFactor);
+    }
+    
+    // Create starting platform
+    addPlatform(0, 0.5, 3.5, 2.0, 0.3, 0.18, 0x4db6ac);
+    
+    // Generate platforms with balanced difficulty
+    let lastX = 0;
+    let lastZ = 0.5;
+    
+    for (let i = 0; i < platformCount; i++) {
+      // Generate x position with more control
+      let x;
+      let attempts = 0;
+      let validPosition = false;
+      
+      // Try to find a valid position that doesn't touch other platforms
+      while (!validPosition && attempts < 20) {
+        x = (Math.random() - 0.5) * maxOffset * 2;
+        
+        // Check if this platform would be too close to the previous one
+        const xDiff = Math.abs(x - lastX);
+        const minDistance = width * 0.6; // Minimum distance between platforms
+        
+        if (xDiff > minDistance || i === 0) {
+          validPosition = true;
+        }
+        
+        attempts++;
+      }
+      
+      // Calculate gap based on x difference - diagonal platforms have smaller gaps
+      const xDiff = Math.abs(x - lastX);
+      let gapReduction = 0;
+      
+      // If platforms are diagonal (x difference is significant), reduce the gap
+      if (xDiff > 1.0) {
+        gapReduction = 0.3; // Reduce gap by 30% for diagonal jumps
+      }
+      
+      const z = lastZ - (minGap + Math.random() * (maxGap - minGap) * (1 - gapReduction));
+      
+      // Color gradient based on position
+      const colorValue = Math.max(0x004d40 - i * 0x001100, 0x002200);
+      
+      addPlatform(x, z, width, depth, 0.3, 0.18, colorValue);
+      
+      lastX = x;
+      lastZ = z;
+    }
+    
+    // Add final platform for NPC
+    const finalPlatformZ = lastZ - 2;
+    addPlatform(0, finalPlatformZ, 2.5, 2.0, 0.3, 0.18, 0x004d40);
+    
+    // Place NPC on the final platform
+    npc.position.set(0, 0.4, finalPlatformZ);
+    mark.position.set(0, 2.0, finalPlatformZ);
+  }
+
+  function addPlatform(x,z,w=2.2,d=1.6,h=0.3,y=0.18, color=0x4db6ac) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const mat = new THREE.MeshStandardMaterial({ color: color, metalness:0.02, roughness:0.85 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    platforms.push({
+      mesh,
+      minX: x - w/2,
+      maxX: x + w/2,
+      minZ: z - d/2,
+      maxZ: z + d/2,
+      topY: y + h/2
+    });
+  }
+
+  // Improved joystick controls
+  let joystickX = 0, joystickY = 0;
+  let isTouchingJoystick = false;
+  let joystickActive = false;
+  
+  joystick.addEventListener('touchstart', e => {
+    e.preventDefault();
+    isTouchingJoystick = true;
+    joystickActive = true;
+  }, {passive:false});
+  
+  joystick.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!isTouchingJoystick || !gameActive) return;
+    
+    const rect = joystick.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left - rect.width/2;
+    const y = touch.clientY - rect.top - rect.height/2;
+    const max = rect.width/2 - 22;
+    
+    const distance = Math.sqrt(x*x + y*y);
+    
+    if (distance > max) {
+      joystickX = (x / distance) * max;
+      joystickY = (y / distance) * max;
+    } else {
+      joystickX = x;
+      joystickY = y;
+    }
+    
+    stick.style.left = (rect.width/2 - 22 + joystickX) + 'px';
+    stick.style.top = (rect.height/2 - 22 + joystickY) + 'px';
+  }, {passive:false});
+  
+  joystick.addEventListener('touchend', e => {
+    isTouchingJoystick = false;
+    joystickActive = false;
+    joystickX = 0;
+    joystickY = 0;
+    stick.style.left = '33px';
+    stick.style.top = '33px';
+  });
+
+  // Mouse events for desktop testing
+  joystick.addEventListener('mousedown', e => {
+    if (!gameActive) return;
+    e.preventDefault();
+    isTouchingJoystick = true;
+    joystickActive = true;
+  });
+  
+  document.addEventListener('mousemove', e => {
+    if (!isTouchingJoystick || !gameActive) return;
+    
+    const rect = joystick.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width/2;
+    const y = e.clientY - rect.top - rect.height/2;
+    const max = rect.width/2 - 22;
+    
+    const distance = Math.sqrt(x*x + y*y);
+    
+    if (distance > max) {
+      joystickX = (x / distance) * max;
+      joystickY = (y / distance) * max;
+    } else {
+      joystickX = x;
+      joystickY = y;
+    }
+    
+    stick.style.left = (rect.width/2 - 22 + joystickX) + 'px';
+    stick.style.top = (rect.height/2 - 22 + joystickY) + 'px';
+  });
+  
+  document.addEventListener('mouseup', e => {
+    isTouchingJoystick = false;
+    joystickActive = false;
+    joystickX = 0;
+    joystickY = 0;
+    stick.style.left = '33px';
+    stick.style.top = '33px';
+  });
+
+  // Jump button (touch)
+  let jumpPressed = false;
+  jumpBtn.addEventListener('touchstart', e => { 
+    if (!gameActive) return;
+    e.preventDefault(); 
+    jumpPressed = true; 
+  }, {passive:false});
+  
+  jumpBtn.addEventListener('touchend', e => { 
+    e.preventDefault(); 
+    jumpPressed = false; 
+  }, {passive:false});
+  
+  // desktop click
+  jumpBtn.addEventListener('mousedown', () => {
+    if (!gameActive) return;
+    jumpPressed = true;
+  });
+  
+  window.addEventListener('mouseup', () => jumpPressed = false);
+
+  // keyboard support
+  const keys = {};
+  window.addEventListener('keydown', e => { 
+    if (!gameActive) return;
+    keys[e.key.toLowerCase()] = true; 
+    if (e.key === ' ') e.preventDefault(); 
+  });
+  
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  // Continue button - advances to next level
+  continueBtn.addEventListener('click', () => {
+    if (currentLevel >= 5) {
+      // Game completed
+      endScreen.style.display = 'flex';
+      dialog.style.display = 'none';
+      gameActive = false;
+    } else {
+      currentLevel++;
+      generateLevel(currentLevel);
+      resetGame();
+      dialog.style.display = 'none';
+    }
+  });
+
+  // Restart button
+  restartBtn.addEventListener('click', resetGame);
+
+  // Game reset function
+  function resetGame() {
+    player.position.copy(startPos);
+    velY = 0;
+    grounded = false;
+    gameActive = true;
+    gameOverScreen.style.display = 'none';
+    dialog.style.display = 'none';
+    camera.position.set(0, 4, 8);
+  }
+
+  // Collision detection system
+  function checkPlatformCollision() {
+    const playerFeetY = player.position.y - (playerHeight / 2);
+    let highestSurface = -Infinity;
+    let onPlatform = false;
+    
+    for (const platform of platforms) {
+      if (player.position.x >= platform.minX && player.position.x <= platform.maxX &&
+          player.position.z >= platform.minZ && player.position.z <= platform.maxZ) {
+        
+        if (playerFeetY <= platform.topY + 0.1) {
+          if (platform.topY > highestSurface) {
+            highestSurface = platform.topY;
+            onPlatform = true;
+          }
+        }
+      }
+    }
+    
+    if (playerFeetY <= 0.1 && !onPlatform) {
+      highestSurface = 0;
+      onPlatform = true;
+    }
+    
+    return {
+      onPlatform,
+      surfaceY: highestSurface
+    };
+  }
+
+  // Animations
+  function updatePlayerAnimation(time, isMoving) {
+    if (!isMoving) {
+      // Reset to idle position
+      playerLimbs.leftArm.rotation.x = 0;
+      playerLimbs.rightArm.rotation.x = 0;
+      playerLimbs.leftLeg.rotation.x = 0;
+      playerLimbs.rightLeg.rotation.x = 0;
+      return;
+    }
+    
+    // Walking animation
+    const walkSpeed = 12;
+    const armSwing = Math.sin(time * walkSpeed) * 0.3;
+    const legSwing = Math.sin(time * walkSpeed) * 0.4;
+    
+    // Arm animation
+    playerLimbs.leftArm.rotation.x = -armSwing;
+    playerLimbs.rightArm.rotation.x = armSwing;
+    
+    // Leg animation
+    playerLimbs.leftLeg.rotation.x = legSwing;
+    playerLimbs.rightLeg.rotation.x = -legSwing;
+  }
+
+  // Improved camera system
+  let cameraDistance = 6;
+  let cameraHeight = 3;
+  let targetCameraPosition = new THREE.Vector3();
+  let cameraLerpFactor = 0.1;
+
+  // main loop & physics
+  let last = performance.now();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (!gameActive || !gameStarted) {
+      renderer.render(scene, camera);
+      return;
+    }
+
+    // movement input - improved joystick responsiveness
+    let mvx = 0, mvz = 0;
+    
+    if (joystickActive && (Math.abs(joystickX) > 2 || Math.abs(joystickY) > 2)) {
+      mvx += joystickX / 60; // More responsive
+      mvz += joystickY / 60;
+    }
+    
+    if (keys['w'] || keys['arrowup']) mvz -= 0.15;
+    if (keys['s'] || keys['arrowdown']) mvz += 0.15;
+    if (keys['a'] || keys['arrowleft']) mvx -= 0.15;
+    if (keys['d'] || keys['arrowright']) mvx += 0.15;
+
+    // Check if player is moving
+    isMoving = Math.abs(mvx) > 0.01 || Math.abs(mvz) > 0.01;
+
+    // Apply movement
+    player.position.x += mvx * dt * 12; // Slightly faster movement
+    player.position.z += mvz * dt * 12;
+
+    // Update player rotation based on movement direction
+    if (mvx !== 0 || mvz !== 0) {
+      player.rotation.y = Math.atan2(mvx, mvz);
+    }
+
+    // Vertical physics
+    velY += gravity * dt;
+    player.position.y += velY * dt;
+
+    // Check platform collision
+    const collision = checkPlatformCollision();
+    
+    if (collision.onPlatform && player.position.y - (playerHeight / 2) <= collision.surfaceY + 0.1) {
+      // Player is on a platform or ground
+      player.position.y = collision.surfaceY + (playerHeight / 2);
+      velY = 0;
+      grounded = true;
+      
+      // Check if player touched the ground (not a platform)
+      if (collision.surfaceY === 0) {
+        gameActive = false;
+        gameOverScreen.style.display = 'block';
+      }
+    } else {
+      grounded = false;
+    }
+
+    // jump action
+    const wantJump = jumpPressed || keys[' '];
+    if (wantJump && grounded) {
+      velY = jumpImpulse;
+      grounded = false;
+    }
+
+    // Update player animations
+    updatePlayerAnimation(now * 0.001, isMoving);
+
+    // npc bob & slight animation
+    npc.rotation.y = Math.sin(now * 0.0008) * 0.02;
+
+    // mark rotation
+    mark.rotation.y += 0.02;
+
+    // Improved third-person camera
+    targetCameraPosition.copy(player.position);
+    
+    // Calculate camera offset based on player rotation
+    const cameraOffset = new THREE.Vector3(
+      -Math.sin(player.rotation.y) * cameraDistance,
+      cameraHeight,
+      -Math.cos(player.rotation.y) * cameraDistance
+    );
+    
+    targetCameraPosition.add(cameraOffset);
+    
+    // Smooth camera movement with adjusted lerp factor
+    camera.position.lerp(targetCameraPosition, cameraLerpFactor);
+    
+    // Look at a point slightly above the player for better view
+    const lookAtTarget = new THREE.Vector3(
+      player.position.x,
+      player.position.y + 1.5,
+      player.position.z
+    );
+    camera.lookAt(lookAtTarget);
+
+    // check distance for interaction with npc
+    const dx = player.position.x - npc.position.x;
+    const dz = player.position.z - npc.position.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if (dist <= interactionRadius && gameActive) {
+      gameActive = false;
+      // Set dialogue based on current level
+      dialogText.textContent = levelDialogues[currentLevel - 1];
+      dialog.style.display = 'block';
+    }
+
+    // Render
+    renderer.render(scene, camera);
+  }
+  
+  // Enable shadows
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  
+  // Set player position on the first platform
+  player.position.copy(startPos);
+  scene.add(player);
+  
+  animate(0);
+
+  // Resize handling
+  window.addEventListener('resize', () => {
+    renderer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  </script>
+</body>
+</html>
